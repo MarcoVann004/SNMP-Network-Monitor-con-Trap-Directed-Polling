@@ -75,4 +75,37 @@ IF_TABLE_OIDS = {
         data_type="Counter32",
         description="Byte inviati dall'interfaccia",
     ),
+    "ifInErrors": OID(
+    name="ifInErrors",
+    value="1.3.6.1.2.1.2.2.1.14",
+    kind="table_column",
+    data_type="Counter32",
+    description="Pacchetti in ingresso scartati per errore",
+    ),
+    "ifOutErrors": OID(
+        name="ifOutErrors",
+        value="1.3.6.1.2.1.2.2.1.20",
+        kind="table_column",
+        data_type="Counter32",
+        description="Pacchetti in uscita scartati per errore",
+    ),
+}
+
+INTERFACE_METRIC_COLUMNS = {
+    "ifDescr": IF_TABLE_OIDS["ifDescr"],
+    "ifOperStatus": IF_TABLE_OIDS["ifOperStatus"],
+    "ifInOctets": IF_TABLE_OIDS["ifInOctets"],
+    "ifOutOctets": IF_TABLE_OIDS["ifOutOctets"],
+    "ifInErrors": IF_TABLE_OIDS["ifInErrors"],
+    "ifOutErrors": IF_TABLE_OIDS["ifOutErrors"],
+}
+
+IF_OPER_STATUS = {
+    1: "up",
+    2: "down",
+    3: "testing",
+    4: "unknown",
+    5: "dormant",
+    6: "notPresent",
+    7: "lowerLayerDown",
 }
