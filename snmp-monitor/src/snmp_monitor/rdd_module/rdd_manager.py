@@ -25,8 +25,8 @@ def create_rrd(path:str) :
         "DS:if_oper_status:GAUGE:120:0:U", #DS:nome:tipo:heartbeat:min:max (GAUGE per valori fissi, COUNTER per valori crescenti)
         "DS:if_octets_in:COUNTER:120:0:U",  #min valore minimo accettato per i contatori e max valore massimo, U per illimitato
         "DS:if_octets_out:COUNTER:120:0:U", #heartbeat è 2xstep quindi 60x2
-        "DS:if_in_error:COUNTER:120:0:U",
-        "DS:if_out_error:COUNTER:120:0:U",
+        "DS:if_in_errors:COUNTER:120:0:U",
+        "DS:if_out_errors:COUNTER:120:0:U",
         "RRA:AVERAGE:0.5:1:1440" # salva la media, ogni 1 misura, per 1440 campioni
     )
 
@@ -35,7 +35,10 @@ def update_rrd(path:str,row:dict) :
     #il file rrd esiste già vieni solo aggiornato
 
     stringa=f"{row['timestamp']}:{row['if_oper_status']}:{row['if_in_octets']}:{row['if_out_octets']}:{row['if_in_errors']}:{row['if_out_errors']}"
-    rrdtool.update(path,stringa)
+    try:
+        rrdtool.update(path, stringa)
+    except rrdtool.OperationalError:
+        pass  # timestamp già inserito, saltiamo
 
 def process_row(row:dict):
 
