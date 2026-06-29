@@ -35,9 +35,12 @@ def update_rrd(path:str,row:dict) :
     #il file rrd esiste già vieni solo aggiornato
 
     stringa=f"{row['timestamp']}:{row['if_oper_status']}:{row['if_in_octets']}:{row['if_out_octets']}:{row['if_in_errors']}:{row['if_out_errors']}"
+    print(f"UPDATE: {path} -> {stringa}")
+
     try:
         rrdtool.update(path, stringa)
-    except rrdtool.OperationalError:
+    except rrdtool.OperationalError as e:
+        print(f"Saltato: {e}")
         pass  # timestamp già inserito, saltiamo
 
 def process_row(row:dict):
@@ -54,5 +57,7 @@ def process_row(row:dict):
 if __name__ == "__main__":
     with open("metrics.csv", "r") as f:
         reader = csv.DictReader(f)
-        for row in reader:
+        rows = sorted(reader, key=lambda r: int(r["timestamp"]))
+        print(f"Righe lette: {len(rows)}")
+        for row in rows:
             process_row(row)
