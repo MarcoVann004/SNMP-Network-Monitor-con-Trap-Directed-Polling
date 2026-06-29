@@ -1,7 +1,7 @@
-import time
-import rrdtool
 import os
 import csv
+import time
+import rrdtool
 
 def create_rrd_path(agent_ip:str,if_index:str)-> str :
 
@@ -11,47 +11,68 @@ def create_rrd_path(agent_ip:str,if_index:str)-> str :
     filename=f"rrd_data/{ip}_if{if_index}.rrd"
     return filename
 
-def create_rrd(path:str) :
+def create_rrd(path:str, start_time:int|None=None, overwrite:bool=False) :
 
-    #creo la cartella contenente i file rrd se esiste non succede altro
+    # Se il file esiste già e dobbiamo ricrearlo, lo rimuoviamo prima di ricrearlo
+    if overwrite and os.path.exists(path):
+        os.remove(path)
 
+    # Creo la cartella dei file RRD se non esiste
     os.makedirs("rrd_data", exist_ok=True) 
 
-    #.create crea effettivamente il file rrd
+    # Se non viene passato un start_time, uso un valore leggermente precedente al momento attuale
+    if start_time is None:
+        start_time = int(time.time()) - 120
 
     rrdtool.create(
-        path,   #nome file
-        "--step","60", # ogni quanto fa polling
-        "DS:if_oper_status:GAUGE:120:0:U", #DS:nome:tipo:heartbeat:min:max (GAUGE per valori fissi, COUNTER per valori crescenti)
-        "DS:if_octets_in:COUNTER:120:0:U",  #min valore minimo accettato per i contatori e max valore massimo, U per illimitato
-        "DS:if_octets_out:COUNTER:120:0:U", #heartbeat è 2xstep quindi 60x2
+        path,
+        "--step","60",    #polling ogni 60s
+        "--start", str(start_time),
+        "DS:if_oper_status:GAUGE:120:0:U",  #DS : nome : tipo : heartbeat : min : max /gauge
+        "DS:if_octets_in:COUNTER:120:0:U",  #il Gauge server per valori fissi, counter per valori crescenti
+        "DS:if_octets_out:COUNTER:120:0:U", 
         "DS:if_in_errors:COUNTER:120:0:U",
         "DS:if_out_errors:COUNTER:120:0:U",
-        "RRA:AVERAGE:0.5:1:1440" # salva la media, ogni 1 misura, per 1440 campioni
+        "RRA:AVERAGE:0.5:1:1440" # definisce come archiviare i dati nel tempo
     )
 
-def update_rrd(path:str,row:dict) :
+def update_rrd(path:str,row:dict) -> bool:
 
-    #il file rrd esiste già vieni solo aggiornato
-
+    # Costruisco la stringa di aggiornamento nel formato richiesto da RRDtool
     stringa=f"{row['timestamp']}:{row['if_oper_status']}:{row['if_in_octets']}:{row['if_out_octets']}:{row['if_in_errors']}:{row['if_out_errors']}"
     print(f"UPDATE: {path} -> {stringa}")
 
     try:
         rrdtool.update(path, stringa)
+        return True
     except rrdtool.OperationalError as e:
         print(f"Saltato: {e}")
-        pass  # timestamp già inserito, saltiamo
+        # Se l'aggiornamento fallisce per timestamp troppo vecchio, ricreo il file con un start_time coerente
+        timestamp = int(row['timestamp'])
+        try:
+            create_rrd(path, start_time=timestamp - 120, overwrite=True)
+            rrdtool.update(path, stringa)
+            return True
+        except rrdtool.OperationalError as retry_error:
+            print(f"Retry fallito: {retry_error}")
+            return False
 
 def process_row(row:dict):
 
-    #trovi il path e controlli se esiste
-
+    # Ricavo il path del file RRD per questo interfaccia
     path= create_rrd_path(row['agent_ip'],row['if_index'])
+    timestamp = int(row['timestamp'])
 
-    if not os.path.exists(path): 
-        create_rrd(path)
-    update_rrd(path,row)
+    # Se il file non esiste, lo creo prima di inserire i dati
+    if not os.path.exists(path):
+        create_rrd(path, start_time=timestamp - 120)
+        update_rrd(path,row)
+        return
+
+    # Se l'aggiornamento fallisce, ricreo il file e riprovo
+    if not update_rrd(path,row):
+        create_rrd(path, start_time=timestamp - 120, overwrite=True)
+        update_rrd(path,row)
 
 
 if __name__ == "__main__":

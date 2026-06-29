@@ -3,6 +3,7 @@ import rrdtool
 
 def graph_traffic(path:str) :
 
+    # Creo la cartella dove salvare i grafici PNG se non esiste
     os.makedirs("rrd_graphs", exist_ok=True)
 
     rrd_path = f"rrd_data/{path}"
@@ -12,18 +13,24 @@ def graph_traffic(path:str) :
     print(f"File esiste: {os.path.exists(rrd_path_abs)}")
     print(f"DEF: DEF:traffic_in:{rrd_path_abs}:if_octets_in:AVERAGE")
 
+    # Genero il grafico con un intervallo di 1 ora e una linea più leggibile
+    # così i punti non spariscono se i campioni arrivano con un po' di ritardo
     rrdtool.graph(
         png_path,
-        "--start","-24h",
-        "--end","now",
-        "--title", "Traffico eth0" ,      # titolo del grafico
-        "--vertical-label", "bytes/s",     # etichetta asse Y
-        "--width", "800",                  # larghezza in pixel
-        "--height", "300",                 # altezza in pixel
-        f"DEF:traffic_in={rrd_path_abs}:if_octets_in:AVERAGE",
+        "--start", "-1h", #inizio tempo dati raccolti
+        "--end", "now", #fine tempo dati raccolti
+        "--title", "Traffico eth0", #titolo grafo
+        "--vertical-label", "bytes/s", #testo asse verticale
+        "--width", "800", #larghezza
+        "--height", "300", #altezza
+        "--slope-mode", # fa in modo che la linea sia più leggibile
+        f"DEF:traffic_in={rrd_path_abs}:if_octets_in:AVERAGE", #valori mostrati
         f"DEF:traffic_out={rrd_path_abs}:if_octets_out:AVERAGE",
-        "LINE1:traffic_in#0000FF:Traffico In",    # linea blu
-        "AREA:traffic_out#00FF0080:Traffico Out", # area verde semitrasparente
+        f"DEF:status={rrd_path_abs}:if_oper_status:AVERAGE",
+        "CDEF:is_down=status,2,EQ,1000000,0,IF",
+        "AREA:is_down#FF000080:Interface Down",
+        "LINE1:traffic_in#0000FF:Traffico In", 
+        "AREA:traffic_out#00FF0080:Traffico Out",
     )
 
 def generate_all_graph() :
