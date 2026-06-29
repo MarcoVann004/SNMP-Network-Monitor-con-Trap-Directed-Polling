@@ -1,56 +1,91 @@
-import time
+import asyncio
+import logging
 from datetime import datetime
+from typing import Optional
 
-from snmp_monitor.models import AgentConfig, InterfaceMetric
+from snmp_monitor.models import AgentConfig, InterfaceMetric, COUNTER32_MAX
 from snmp_monitor.oid import IF_OPER_STATUS, INTERFACE_METRIC_COLUMNS
-from snmp_monitor.snmp_client import snmp_walk
+from snmp_monitor.snmp_client import snmp_bulk_walk
 
 
-def _to_int(value, default: int = 0) -> int: 
+# Logger per il modulo
+logger = logging.getLogger(__name__)
+
+
+
+def _to_int(value, field_name: str = "", default: int = 0) -> int:
+    """
+    Converte il valore stringa restituito da pysnmp in intero. Logga un warning se il valore non è parsabile
+    """
+    
     if value is None:
         return default
     try:
         return int(value)
     except (TypeError, ValueError):
+        if field_name:
+            logger.warning(
+                "Valore non parsabile per %s: %r — uso default %d",
+                field_name, value, default
+            )
         return default
 
 
-def poll_interfaces(agent: AgentConfig) -> list[InterfaceMetric]:
+async def poll_interface(agent: AgentConfig) -> list[InterfaceMetric]:
     """
     Legge la ifTable di un agente SNMP e costruisce una metrica per ogni interfaccia.
     """
 
-    columns = {} # Metto i risultati delle walk
-
-    for name, oid in INTERFACE_METRIC_COLUMNS.items(): # Esegue una walk per ogni colonna della tabella
-        columns[name] = snmp_walk(
-            agent.host,
-            agent.port,
-            agent.community,
-            oid.value,
+    try:
+        risultati = await asyncio.gather(
+            *[
+                snmp_bulk_walk(agent.host, agent.port, agent.community, oid.value)
+                for oid in INTERFACE_METRIC_COLUMNS.values()
+            ],
+            return_exceptions = True # Se fallisce una lettura non annulla tutte le altre
         )
-
-    metriche = [] # Metriche per una interfaccia
+    except Exception as exc:
+        logger.error("Errore imprevisto durante il polling di %s: %s", agent.name, exc)
+        return []
+    
+    # Ricostruisce il dizionario {if_index: valore}
+    columns: dict[str, dict[int, str]] = {}
+    
+    # zip(...) permette di unire i risulati ricevuti dal gather (i valori) alle chiavi (IfDescr, IfInOctets...)
+    for col_name, result in zip(INTERFACE_METRIC_COLUMNS.keys(), risultati):
+        if isinstance(result, Exception): # Se una lettura non è avvenuta aggiunge solo {}
+            logger.warning(
+                "[%s] Walk fallita per colonna %s: %s — colonna ignorata",
+                agent.name, col_name, result
+            )
+            columns[col_name] = {}
+        else:
+            columns[col_name] = result
+    
+    metriche: list[InterfaceMetric] = []
     timestamp = datetime.now()
-    interface_indexes = columns["ifDescr"].keys() # Prende gli indici delle interfacce usando ifDescr
 
-    for if_index in interface_indexes: # Costruisco la riga InterfaceMetric per ogni interfaccia
-        statusCode = _to_int(columns["ifOperStatus"].get(if_index)) 
+    # Usa gli indici della colonna ifDescr come riferimento
+    interface_indexes = columns["ifDescr"].keys()
 
-        misura = InterfaceMetric(
-            timestamp = timestamp,
-            agent = agent.name,
-            if_index = if_index,
-            if_name = columns["ifDescr"].get(if_index, ""),
-            if_status = IF_OPER_STATUS.get(statusCode, "unknown"),
-            in_octets = _to_int(columns["ifInOctets"].get(if_index)),
-            out_octets = _to_int(columns["ifOutOctets"].get(if_index)),
-            in_errors = _to_int(columns["ifInErrors"].get(if_index)),
-            out_errors = _to_int(columns["ifOutErrors"].get(if_index)),
+    for if_index in interface_indexes:
+        status_code = _to_int(columns["ifOperStatus"].get(if_index))
+
+        metrica = InterfaceMetric(
+            timestamp=timestamp,
+            agent=agent.name,
+            if_index=if_index,
+            if_name=columns["ifDescr"].get(if_index, ""),
+            if_status=IF_OPER_STATUS.get(status_code, "unknown"),
+            in_octets=_to_int(columns["ifInOctets"].get(if_index)),
+            out_octets=_to_int(columns["ifOutOctets"].get(if_index)),
+            in_errors=_to_int(columns["ifInErrors"].get(if_index)),
+            out_errors=_to_int(columns["ifOutErrors"].get(if_index)),
         )
-        metriche.append(misura)
-        
-    return metriche
+
+        metriche.append(metrica)
+
+    return metriche        
 
 def poller_mbps(agent: AgentConfig, interval: int = 5) -> list[InterfaceMetric]:
     """
@@ -115,3 +150,6 @@ def poller_mbps(agent: AgentConfig, interval: int = 5) -> list[InterfaceMetric]:
         metriche.append(misura)
     
     return metriche
+
+
+# Devo aggiungere la funzione che chiama i poll_interfaces

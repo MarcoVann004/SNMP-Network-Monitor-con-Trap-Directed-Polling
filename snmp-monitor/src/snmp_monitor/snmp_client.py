@@ -1,6 +1,6 @@
 import asyncio
 from pysnmp.hlapi.asyncio import (
-    walk_cmd,
+    bulk_walk_cmd,
     SnmpEngine,
     CommunityData,
     UdpTransportTarget,
@@ -9,34 +9,33 @@ from pysnmp.hlapi.asyncio import (
     ObjectIdentity,
 )
 
-
-def snmp_walk(host: str, port: int, community: str, oid: str):
-    """
-    Esegue una richiesta SNMP WALK verso l'agente specificato.
-    """
-    return asyncio.run(snmp_walk_asincrona(host, port, community, oid))
+snmpEngine = SnmpEngine() # Integra tutta la logica necessaria per inviare e ricevere messaggi SNMP
 
 
-async def snmp_walk_asincrona(host: str, port: int, community: str, oid: str):
-    risultati = {}
+async def snmp_walk_asincrona(host: str, port: int, community: str, oid: str, timeout: float = 2.0, retries: int = 1, maxRep: int = 20) -> dict[int, str]:
+    risultati: dict[int, str] = {}
 
-    communicationChannel = await UdpTransportTarget.create((host, port))
+    communicationChannel = await UdpTransportTarget.create((host, port), timeout, retries)
 
-    async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
-        SnmpEngine(),
-        CommunityData(community, mpModel=1),
+    async for errorIndication, errorStatus, errorIndex, varBinds in bulk_walk_cmd(
+        snmpEngine,
+        CommunityData(community, mpModel = 1),
         communicationChannel,
         ContextData(),
-        ObjectType(ObjectIdentity(oid)),
+        ObjectType(ObjectIdentity(oid)), 
         lexicographicMode=False,
         lookupMib=False,
+        maxRep = maxRep,
     ):
         if errorIndication:
-            raise RuntimeError(errorIndication)
+            raise RuntimeError(f"[{host}] SNMP error: {errorIndication}")
 
         if errorStatus:
-            raise RuntimeError(f"{errorStatus.prettyPrint()} at {errorIndex}")
-
+            raise RuntimeError(
+                f"[{host}] SNMP error: {errorStatus.prettyPrint()} "
+                f"at index {errorIndex}"
+            )
+        
         for oidResponse, value in varBinds:
             oidResponse = str(oidResponse)
 

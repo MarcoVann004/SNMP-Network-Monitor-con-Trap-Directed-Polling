@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
 @dataclass
 class InterfaceMetric:
@@ -12,8 +13,8 @@ class InterfaceMetric:
     out_octets: int
     in_errors: int
     out_errors: int
-    in_mbps: float = 0.0  # calcolato dopo, default 0
-    out_mbps: float = 0.0
+    in_mbps: Optional[float] = 0.0  # calcolato dopo, default 0
+    out_mbps: Optional[float] = 0.0
 
 @dataclass
 class SystemInfo:
@@ -24,7 +25,7 @@ class SystemInfo:
     host: str
     port: int
     sys_descr: str
-    sys_uptime: str
+    sys_uptime: int
     sys_name: str
 
 @dataclass
@@ -32,11 +33,11 @@ class TrapEvent:
     timestamp: datetime
     source_ip: str
     trap_type: str        # "linkDown", "linkUp", ecc.
-    varbinds: dict
+    varbinds: dict[str, str]
 
 @dataclass
 class AgentConfig:
     name: str # Identifica l'agente, ad esempio "Router1"
     host: str # Indirizzo IP
-    port: int  # Porta SNMP (default 161)
+    port: int = 161  # Porta SNMP (default 161)
     community: str # Autorizza la lettura dei dati
