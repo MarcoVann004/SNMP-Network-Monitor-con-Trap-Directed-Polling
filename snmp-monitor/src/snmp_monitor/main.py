@@ -103,7 +103,7 @@ def signal_handlers(stop_event: asyncio.Event) -> None:
         except NotImplementedError:
             pass
  
-async def _main_async(args: argparse.Namespace) -> None:
+async def main_async(args: argparse.Namespace) -> None:
     """
     Questa funzione gestisce tutto ciò che serve per avviare il ciclo principale
     """
@@ -141,7 +141,7 @@ def main() -> None:
     args = parser.parse_args()
  
     try:
-        asyncio.run(_main_async(args))
+        asyncio.run(main_async(args))
     except KeyboardInterrupt:
         logger.info("Interruzione da tastiera, chiusura in corso...")
  
