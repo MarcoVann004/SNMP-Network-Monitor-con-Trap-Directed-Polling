@@ -4,7 +4,7 @@ import logging
 import signal # Serve per intercettare segnali di terminazione (CTRL + C)
  
 from snmp_monitor.config import leggi_config
-from snmp_monitor.csv_writer import write_metrics
+from snmp_monitor.csv_writer import write_csv
 from snmp_monitor.poller import poll_all_agents
  
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ async def exec_polling(config_path: str, output_path: str, interval: int, stop_e
  
             if metrics:
                 # Scrittura su file in un thread separato
-                await asyncio.to_thread(write_metrics, metrics, output_path)
+                await asyncio.to_thread(write_csv, metrics, output_path)
  
         except Exception as exc:
             logger.exception("Errore nel ciclo di polling: %s", exc)
