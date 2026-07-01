@@ -33,7 +33,7 @@ async def exec_polling(config_path: str, output_path: str, interval: int, stop_e
         # Se agents è vuoto non esegue il polling
         if not agents:
             logger.warning("Nessun agente configurato in %s, ciclo saltato", config_path)
-            await sleep_until_next_cycle(time, ciclo_iniziato, stop_event)
+            await sleep_until_next_cycle(interval, ciclo_iniziato, stop_event)
             continue
         
         
@@ -50,7 +50,7 @@ async def exec_polling(config_path: str, output_path: str, interval: int, stop_e
         except Exception as exc:
             logger.exception("Errore nel ciclo di polling: %s", exc)
  
-        await sleep_until_next_cycle(time, ciclo_iniziato, stop_event)
+        await sleep_until_next_cycle(interval, ciclo_iniziato, stop_event)
  
     logger.info("Loop di polling terminato")
 
