@@ -16,8 +16,8 @@ def leggi_config(path: str) -> list[AgentConfig]:
         agent = AgentConfig(
             name = agent["name"],
             host = agent["host"],
+            community = agent["community"],
             port = agent["port"],
-            community = agent["community"]
         )
         agents.append(agent)
         

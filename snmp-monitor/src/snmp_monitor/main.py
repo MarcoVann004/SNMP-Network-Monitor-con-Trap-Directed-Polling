@@ -9,7 +9,7 @@ from snmp_monitor.poller import poll_all_agents
  
 logger = logging.getLogger(__name__)
 
-async def exec_polling(config_path: str, output_path: str, time: int, stop_event: asyncio.Event,):
+async def exec_polling(config_path: str, output_path: str, interval: int, stop_event: asyncio.Event,):
     """
     Esegue il polling di tutti gli agenti, scrive le metriche lette nel file CSV e ripete il ciclo `time` secondi
     Gli agenti vengono ricaricati dal file di configurazione ad ogni ciclo,
@@ -27,7 +27,7 @@ async def exec_polling(config_path: str, output_path: str, time: int, stop_event
             agents = leggi_config(config_path)
         except Exception as exc:
             logger.error("Impossibile leggere la configurazione %s: %s", config_path, exc)
-            await sleep_until_next_cycle(time, ciclo_iniziato, stop_event)
+            await sleep_until_next_cycle(interval, ciclo_iniziato, stop_event)
             continue
         
         # Se agents è vuoto non esegue il polling

@@ -51,6 +51,7 @@ def write_csv(metrics: list[InterfaceMetric], path: str) -> None:
         return 
     
     file_path = Path(path)
+    file_exist = file_path.exists() and file_path.stat().st_size > 0
     
     # Il file viene aperto in modalità append. Quando vengono ci sono nuovi dati, vengono aggiunti a quelli esistenti.
     try:
@@ -58,7 +59,7 @@ def write_csv(metrics: list[InterfaceMetric], path: str) -> None:
             writer = csv.DictWriter(f, FIELDNAMES)
             
             # Se il file non esiste o è vuoto viene creata la riga di intestazione dei primi dati
-            if not file_path.exists() and file_path.stat().st_size > 0:
+            if not file_exist:
                 writer.writeheader()
                 
             for metric in metrics:

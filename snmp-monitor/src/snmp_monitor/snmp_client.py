@@ -11,7 +11,7 @@ from pysnmp.hlapi.asyncio import (
 snmpEngine = SnmpEngine() # Integra tutta la logica necessaria per inviare e ricevere messaggi SNMP
 
 
-async def snmp_walk_asincrona(host: str, port: int, community: str, oid: str, timeout: float = 2.0, retries: int = 1, maxRep: int = 20) -> dict[int, str]:
+async def snmp_bulk_asincrona(host: str, port: int, community: str, oid: str, timeout: float = 2.0, retries: int = 1, maxRep: int = 20) -> dict[int, str]:
     risultati: dict[int, str] = {}
 
     communicationChannel = await UdpTransportTarget.create((host, port), timeout, retries)

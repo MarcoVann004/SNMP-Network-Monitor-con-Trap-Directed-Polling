@@ -142,14 +142,12 @@ async def poll_all_agents(agents: list[AgentConfig]) -> list[InterfaceMetric]:
 
         # Scorre tutte le interfacce
         for current in result:
-            previous = agent_previous.get(current.if_index) # Prende la lettura precendete
-            if previous is not None:
-                current = compute_mbps(current, previous) # Qui calcola il traffico
+            prev = agent_previous.get(current.if_index)  # ← solo variabile locale
+            if prev is not None:
+                current = compute_mbps(current, prev)
             metriche_con_delta.append(current)
 
-        # Aggiorna lo storico per il prossimo ciclo
-        previous[agent.name] = {m.if_index: m for m in result}
-    
+        previous[agent.name] = {m.if_index: m for m in result}  # ← ora accede correttamente al dict globale
         all_metrics.extend(metriche_con_delta)
 
     return all_metrics

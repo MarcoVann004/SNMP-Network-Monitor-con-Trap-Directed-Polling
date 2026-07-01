@@ -13,8 +13,8 @@ class InterfaceMetric:
     out_octets: int
     in_errors: int
     out_errors: int
-    in_mbps: Optional[float] = 0.0  # calcolato dopo, default 0
-    out_mbps: Optional[float] = 0.0
+    in_mbps: Optional[float] = None  # calcolato dopo
+    out_mbps: Optional[float] = None
 
 @dataclass
 class SystemInfo:
@@ -39,5 +39,5 @@ class TrapEvent:
 class AgentConfig:
     name: str # Identifica l'agente, ad esempio "Router1"
     host: str # Indirizzo IP
-    port: int = 161  # Porta SNMP (default 161)
     community: str # Autorizza la lettura dei dati
+    port: int = 161  # Porta SNMP (default 161)
