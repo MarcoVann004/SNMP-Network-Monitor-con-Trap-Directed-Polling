@@ -139,7 +139,12 @@ def main() -> None:
     )
     
     args = parser.parse_args()
- 
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+    )
+
     try:
         asyncio.run(main_async(args))
     except KeyboardInterrupt:
