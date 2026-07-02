@@ -51,6 +51,19 @@ async def poll_interface(agent: AgentConfig) -> list[InterfaceMetric]:
         ],
         return_exceptions=True,
     )
+    
+    # Se la lettura di una colonna è fallita, la sostituisce con un dizionario vuoto
+    risultati_puliti = []
+    for nome, risultato in zip(INTERFACE_METRIC_COLUMNS.keys(), risultati):
+        if isinstance(risultato, Exception):
+            logger.warning("[%s] Walk fallita su %s: %s", agent.name, nome, risultato)
+            risultati_puliti.append({})
+        else:
+            risultati_puliti.append(risultato)
+
+    columns: dict[str, dict[int, str]] = dict(
+        zip(INTERFACE_METRIC_COLUMNS.keys(), risultati_puliti)
+    )
 
     # Unisce i risultati delle metriche ottenute alle interfacce
     columns: dict[str, dict[int, str]] = dict(

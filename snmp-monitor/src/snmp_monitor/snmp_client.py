@@ -21,10 +21,11 @@ async def snmp_bulk_walk(host: str, port: int, community: str, oid: str, timeout
         CommunityData(community, mpModel = 1),
         communicationChannel,
         ContextData(),
+        0,                              # nonRepeaters
+        maxRep,                         # maxRepetitions
         ObjectType(ObjectIdentity(oid)), 
         lexicographicMode=False,
         lookupMib=False,
-        maxRep = maxRep,
     ):
         if errorIndication:
             raise RuntimeError(f"[{host}] SNMP error: {errorIndication}")
