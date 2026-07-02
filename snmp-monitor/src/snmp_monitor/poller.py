@@ -5,7 +5,7 @@ from dataclasses import replace
 
 from snmp_monitor.models import AgentConfig, InterfaceMetric
 from snmp_monitor.oid import IF_OPER_STATUS, INTERFACE_METRIC_COLUMNS
-from snmp_monitor.snmp_client import snmp_bulk_asincrona
+from snmp_monitor.snmp_client import snmp_bulk_walk
 
 # COUNTER32 è un tipo di dato definito in SNMP senza segno e SOLO positivo. Rappresenta il numero di byte che attraversa un'interfaccia
 COUNTER32_MAX = 4_294_967_295
@@ -46,7 +46,7 @@ async def poll_interface(agent: AgentConfig) -> list[InterfaceMetric]:
     
     risultati = await asyncio.gather(
         *[
-            snmp_bulk_asincrona(agent.host, agent.port, agent.community, oid.value)
+            snmp_bulk_walk(agent.host, agent.port, agent.community, oid.value)
             for oid in INTERFACE_METRIC_COLUMNS.values()
         ],
         return_exceptions=True,
