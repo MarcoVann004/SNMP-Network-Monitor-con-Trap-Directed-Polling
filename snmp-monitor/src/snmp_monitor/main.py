@@ -1,15 +1,18 @@
 import argparse # Permette di leggere gli argomenti da linea di comando
 import asyncio
+import contextlib #serve per chiudere pulitamente il task che gestisce le trap.
 import logging
 import signal # Serve per intercettare segnali di terminazione (CTRL + C)
  
 from snmp_monitor.config import leggi_config
 from snmp_monitor.csv_writer import write_csv
+from snmp_monitor.models import TrapEvent
 from snmp_monitor.poller import poll_all_agents
+from snmp_monitor.trap_reciever import (avvia_in_background, trap_richiede_polling)
  
 logger = logging.getLogger(__name__)
 
-async def exec_polling(config_path: str, output_path: str, interval: int, stop_event: asyncio.Event,):
+async def exec_polling(config_path: str, output_path: str, interval: int, stop_event: asyncio.Event):
     """
     Esegue il polling di tutti gli agenti, scrive le metriche lette nel file CSV e ripete il ciclo `time` secondi
     Gli agenti vengono ricaricati dal file di configurazione ad ogni ciclo,
@@ -87,8 +90,8 @@ def signal_handlers(stop_event: asyncio.Event) -> None:
     """
     
     # Recupera l'operazione che sta eseguendo
-    loop = asyncio.get_running_loop()
- 
+    loop = asyncio.get_running_loop() 
+
     # Viene eseguita quando arriverà un segnale
     def _handle_signal() -> None:
         logger.info("Segnale di stop ricevuto, chiusura in corso...")
@@ -102,23 +105,159 @@ def signal_handlers(stop_event: asyncio.Event) -> None:
             loop.add_signal_handler(sig, _handle_signal)
         except NotImplementedError:
             pass
+
+async def gestisci_trap_polling(
+    trap_queue: asyncio.Queue[TrapEvent],
+    config_path: str,
+    output_path: str,
+) -> None:
+    """
+    Gestisce le trap ricevute dal trap receiver.
+
+    Questa funzione è separata da exec_polling():
+    - exec_polling() continua a fare il polling periodico;
+    - questa funzione fa solo il polling immediato causato da trap rilevanti.
+
+    In questo modo non modifichiamo la logica già scritta da altri.
+    """
+
+    while True:
+        trap = await trap_queue.get()
+
+        try:
+            logger.info(
+                "Trap ricevuta dal main: tipo=%s sorgente=%s",
+                trap.trap_type,
+                trap.source_ip,
+            )
+
+            # Non tutte le trap devono attivare un polling immediato.
+            # Per esempio authenticationFailure viene registrata,
+            # ma non è detto che richieda polling delle interfacce.
+            if not trap_richiede_polling(trap):
+                logger.info(
+                    "Trap %s registrata ma non usata per polling immediato",
+                    trap.trap_type,
+                )
+                continue
+
+            logger.info(
+                "Trap %s rilevante: avvio polling immediato",
+                trap.trap_type,
+            )
+
+            try:
+                agents = leggi_config(config_path)
+
+            except Exception as exc:
+                logger.error(
+                    "Impossibile leggere la configurazione %s dopo trap %s: %s",
+                    config_path,
+                    trap.trap_type,
+                    exc,
+                )
+                continue
+
+            if not agents:
+                logger.warning(
+                    "Nessun agente configurato in %s, polling da trap saltato",
+                    config_path,
+                )
+                continue
+
+            try:
+                metrics = await poll_all_agents(agents)
+
+                logger.info(
+                    "Polling immediato da trap %s completato: %d metriche raccolte",
+                    trap.trap_type,
+                    len(metrics),
+                )
+
+                if metrics:
+                    await asyncio.to_thread(write_csv, metrics, output_path)
+
+            except Exception as exc:
+                logger.exception(
+                    "Errore durante il polling immediato da trap %s: %s",
+                    trap.trap_type,
+                    exc,
+                )
+
+        finally:
+            trap_queue.task_done()
  
 async def main_async(args: argparse.Namespace) -> None:
     """
     Questa funzione gestisce tutto ciò che serve per avviare il ciclo principale
+    Il polling periodico resta gestito da exec_polling().
+    In più, il main avvia il trap receiver in background e gestisce
+    le trap rilevanti tramite una queue asincrona.
     """
     
     # È la variabile che gestisce la fine del programma
     stop_event = asyncio.Event()
     signal_handlers(stop_event)
- 
-    # Passa: il file YAML da leggere, il CSV per salvare le metriche, l'intervallo e stop_event
-    await exec_polling(
-        config_path=args.config,
-        output_path=args.output,
-        interval=args.interval,
-        stop_event=stop_event,
+
+    #Queue usata per trasferire le trap dal thread del trap_receiver
+    #al ciclo asyncio del main.
+    trap_queue: asyncio.Queue[TrapEvent] = asyncio.Queue()
+
+    #Recupero il loop asyncio principale.
+    #La callback on_trap verrà chiamata da un thread separato,
+    #quindi l'inserimento nella queue deve essere thread-safe.
+    loop = asyncio.get_running_loop()
+
+    def on_trap(trap: TrapEvent) -> None:
+        """
+        Callback chiamata dal trap receiver quando arriva una trap.
+
+        Non fa polling direttamente, perché viene eseguita nel thread
+        del trap receiver. Si limita a passare la trap al main.
+        """
+
+        loop.call_soon_threadsafe(trap_queue.put_nowait, trap)
+
+    #Avvia il trap receiver in background.
+    #Il receiver resta in ascolto mentre exec_polling continua
+    #a fare il polling periodico.
+    avvia_in_background(
+        host=args.trap_host,
+        port=args.trap_port,
+        community=args.trap_community,
+        on_trap=on_trap,
     )
+
+    logger.info(
+        "Trap receiver avviato su udp://%s:%s",
+        args.trap_host,
+        args.trap_port,
+    )
+
+    # Task separato che gestisce solo le trap.
+    trap_task = asyncio.create_task(
+        gestisci_trap_polling(
+            trap_queue=trap_queue,
+            config_path=args.config,
+            output_path=args.output,
+        )
+    )
+
+    try:
+        # Passa: il file YAML da leggere, il CSV per salvare le metriche, l'intervallo e stop_event
+        await exec_polling(
+            config_path=args.config,
+            output_path=args.output,
+            interval=args.interval,
+            stop_event=stop_event,
+        )
+    finally:
+        # Quando il main termina, fermiamo anche il task delle trap.
+        trap_task.cancel()
+
+        with contextlib.suppress(asyncio.CancelledError):
+            await trap_task
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="SNMP Poller")
@@ -136,6 +275,24 @@ def main() -> None:
         # L'intervallo di polling
         "--interval", type=int, default=30,
         help="Intervallo in secondi tra un ciclo di polling e il successivo",
+    )
+    parser.add_argument(
+    "--trap-host",
+    default="127.0.0.1",
+    help="Indirizzo locale su cui il trap receiver resta in ascolto",
+    )
+
+    parser.add_argument(
+        "--trap-port",
+        type=int,
+        default=9162,
+        help="Porta UDP su cui ricevere le trap SNMP",
+    )
+
+    parser.add_argument(
+        "--trap-community",
+        default="public",
+        help="Community SNMPv1/v2c accettata dal trap receiver",
     )
     
     args = parser.parse_args()
