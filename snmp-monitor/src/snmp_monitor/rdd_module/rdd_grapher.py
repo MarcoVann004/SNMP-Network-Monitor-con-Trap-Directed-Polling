@@ -1,5 +1,6 @@
 import os
 import rrdtool
+from snmp_monitor.rdd_module.rdd_traps import load_traps,get_vrules
 from snmp_monitor.rdd_module.rdd_manager import parse_rrd_filename
 
 def graph_traffic(path:str) :
@@ -15,6 +16,8 @@ def graph_traffic(path:str) :
     print(f"DEF: DEF:traffic_in:{rrd_path_abs}:if_octets_in:AVERAGE")
 
     ip,inf = parse_rrd_filename(path)
+
+    vrules=get_vrules(load_traps("traps.csv"),ip)
 
     # Genero il grafico con un intervallo di 1 ora e una linea più leggibile
     # così i punti non spariscono se i campioni arrivano con un po' di ritardo
@@ -34,8 +37,11 @@ def graph_traffic(path:str) :
         "AREA:is_down#FF000080:Interface Down",
         "LINE1:traffic_in#0000FF:Traffico In", 
         "AREA:traffic_out#00FF0080:Traffico Out",
+        *vrules
     )
 
+
+#controlla che esista la dr e recupera i file rrd da trasformare in grafi
 def generate_all_graph() :
         
     os.makedirs("rrd_graphs", exist_ok=True) 

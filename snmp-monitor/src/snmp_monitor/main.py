@@ -9,6 +9,8 @@ from snmp_monitor.csv_writer import write_csv
 from snmp_monitor.models import TrapEvent
 from snmp_monitor.poller import poll_all_agents
 from snmp_monitor.trap_reciever import (avvia_in_background, trap_richiede_polling)
+from snmp_monitor.rdd_module.rdd_manager import run_manager
+from snmp_monitor.rdd_module.rdd_grapher import generate_all_graph
  
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,8 @@ def signal_handlers(stop_event: asyncio.Event) -> None:
     # Viene eseguita quando arriverà un segnale
     def _handle_signal() -> None:
         logger.info("Segnale di stop ricevuto, chiusura in corso...")
+        run_manager() #legge metrics.csv
+        generate_all_graph()#genera il grafo
         stop_event.set() # stop_event diventa True e termina il ciclo a riga 20
     
     # SIGINT è il segnale che invio da riga di comando
@@ -263,7 +267,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="SNMP Poller")
     parser.add_argument(
         # Specifica gli Agents
-        "--config", default="agents.yaml",
+        "--config", default="agents.yml",
         help="Percorso del file YAML di configurazione degli agenti",
     )
     parser.add_argument(
