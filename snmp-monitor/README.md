@@ -104,7 +104,3 @@ La corretta esecuzione del software e la validazione dei risultati funzionali po
 1.	config/agents.yml (Configurazione di Input): Permette di definire i nodi target. Iniettando parametri errati (es. IP inesistenti), è possibile testare la robustezza del codice verificando la corretta gestione dei timeout a terminale (SNMP error: No SNMP response received before timeout).
 2.	metrics.csv (Risultati Grezzi): Questo file viene generato e popolato dinamicamente dal nucleo del poller. Ogni riga rappresenta un record temporale strutturato contenente le metriche relative a: Timestamp, Agent_Name, Interface_Index, ifDescr, ifOperStatus, ifInOctets, ifOutOctets, ifInErrors, ifOutErrors. La presenza di record con timestamp non allineati all'intervallo standard (es. i 10 secondi del test) valida la corretta esecuzione dei cicli straordinari avviati dalle trap.
 3.	Directory rrd_graphs/ (Output Grafico): Al momento dello spegnimento dell'applicazione, il modulo di elaborazione dati converte i contatori cumulativi del CSV in delta di traffico (throughput calcolato in byte al secondo). La comparsa all'interno di questa cartella dei file grafici .png relativi alle singole interfacce monitorate (es. 127_0_0_1_if1.png) certifica il successo e il corretto funzionamento dell'intera pipeline del software, come nell’esempio riportato qui sotto:
- 
-
-
-<img width="451" height="676" alt="image" src="https://github.com/user-attachments/assets/73ac0c66-f366-4017-93d6-16e15530cbc6" />
