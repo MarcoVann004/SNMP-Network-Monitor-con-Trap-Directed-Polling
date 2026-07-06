@@ -86,8 +86,8 @@ def process_row(row:dict):
         create_rrd(path, start_time=timestamp - 120, overwrite=True)
         update_rrd(path,row)
 
-
-if __name__ == "__main__":
+#funzione da far partire alla chiusura del programma, recupera e riodiordina le metriche da far leggere al grapher 
+def run_manager() :
     with open("metrics.csv", "r") as f:
         reader = csv.DictReader(f)
         rows = sorted(reader, key=lambda r: int(r["timestamp"]))
