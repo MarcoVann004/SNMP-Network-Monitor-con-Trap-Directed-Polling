@@ -97,9 +97,13 @@ def signal_handlers(stop_event: asyncio.Event) -> None:
     # Viene eseguita quando arriverà un segnale
     def _handle_signal() -> None:
         logger.info("Segnale di stop ricevuto, chiusura in corso...")
-        run_manager() #legge metrics.csv
-        generate_all_graph()#genera il grafo
-        stop_event.set() # stop_event diventa True e termina il ciclo a riga 20
+        try:
+            run_manager() #legge metrics.csv
+            generate_all_graph()#genera il grafo
+        except Exception as e:
+            logger.error(f"Errore durante la generazione grafici: {e}")
+        finally:
+            stop_event.set() # stop_event diventa True e termina il ciclo a riga 20
     
     # SIGINT è il segnale che invio da riga di comando
     # SIGTERM è quello inviato dal S.O per terminare un processo

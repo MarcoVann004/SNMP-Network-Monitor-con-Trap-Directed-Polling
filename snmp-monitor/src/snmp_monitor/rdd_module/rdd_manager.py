@@ -2,6 +2,7 @@ import os
 import csv
 import time
 import rrdtool
+import datetime
 
 
 def parse_rrd_filename(filename: str) -> tuple[str, str]:
@@ -51,7 +52,12 @@ def create_rrd(path:str, start_time:int|None=None, overwrite:bool=False) :
 def update_rrd(path:str,row:dict) -> bool:
 
     # Costruisco la stringa di aggiornamento nel formato richiesto da RRDtool
-    stringa=f"{row['timestamp']}:{row['if_oper_status']}:{row['if_in_octets']}:{row['if_out_octets']}:{row['if_in_errors']}:{row['if_out_errors']}"
+    ts = int(datetime.datetime.fromisoformat(row['timestamp']).timestamp())
+    
+    # converte "up"/"down" in 1/2
+    status = 1 if row['if_status'] == 'up' else 2
+    stringa = f"{ts}:{status}:{row['in_octets']}:{row['out_octets']}:{row['in_errors']}:{row['out_errors']}"
+
     print(f"UPDATE: {path} -> {stringa}")
 
     try:
@@ -60,7 +66,7 @@ def update_rrd(path:str,row:dict) -> bool:
     except rrdtool.OperationalError as e:
         print(f"Saltato: {e}")
         # Se l'aggiornamento fallisce per timestamp troppo vecchio, ricreo il file con un start_time coerente
-        timestamp = int(row['timestamp'])
+        timestamp = int(datetime.datetime.fromisoformat(row['timestamp']).timestamp())
         try:
             create_rrd(path, start_time=timestamp - 120, overwrite=True)
             rrdtool.update(path, stringa)
@@ -72,8 +78,8 @@ def update_rrd(path:str,row:dict) -> bool:
 def process_row(row:dict):
 
     # Ricavo il path del file RRD per questo interfaccia
-    path= create_rrd_path(row['agent_ip'],row['if_index'])
-    timestamp = int(row['timestamp'])
+    path = create_rrd_path(row['agent'], row['if_index'])
+    timestamp = int(datetime.datetime.fromisoformat(row['timestamp']).timestamp())
 
     # Se il file non esiste, lo creo prima di inserire i dati
     if not os.path.exists(path):
@@ -90,7 +96,7 @@ def process_row(row:dict):
 def run_manager() :
     with open("metrics.csv", "r") as f:
         reader = csv.DictReader(f)
-        rows = sorted(reader, key=lambda r: int(r["timestamp"]))
+        rows = sorted(reader, key=lambda r: datetime.datetime.fromisoformat(r["timestamp"]))
         print(f"Righe lette: {len(rows)}")
         for row in rows:
             process_row(row)
