@@ -49,7 +49,7 @@ async def poll_interface(agent: AgentConfig) -> list[InterfaceMetric]:
         return_exceptions=True,
     )
 
-    # Se una colonna ha fallito, sostituiscila con dict vuoto e logga
+    # Se una colonna ha fallito la sostituisce con dict vuoto e logga
     risultati_puliti = []
     for nome, risultato in zip(INTERFACE_METRIC_COLUMNS.keys(), risultati):
         if isinstance(risultato, Exception):

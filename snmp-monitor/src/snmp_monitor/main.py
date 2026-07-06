@@ -59,7 +59,7 @@ async def sleep_until_next_cycle(interval: int, ciclo_iniziato: float, stop_even
     """
     Calcola quanto tempo resta prima del prossimo ciclo, sottraendo il tempo
     gia' speso nel ciclo corrente (polling + scrittura), cosi' l'intervallo
-    tra l'inizio di un ciclo e l'inizio del successivo resta ~costante
+    tra l'inizio di un ciclo e l'inizio del successivo resta costante
     invece di accumulare ritardo ciclo dopo ciclo.
  
     Si interrompe immediatamente se stop_event viene impostato, invece di
