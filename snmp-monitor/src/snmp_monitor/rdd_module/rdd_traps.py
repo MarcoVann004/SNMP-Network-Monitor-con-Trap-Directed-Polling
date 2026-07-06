@@ -22,16 +22,27 @@ def get_vrules(traps: list, agent_ip: str) -> list:
         "authenticationFailure": "#FFFF00",  # giallo — errore autenticazione
     }
     vrules = []
+
+    # Filtra le trap rilevanti per l'agente (incluso "unknown") e parse timestamp
+    relevant = []
     for trap in traps:
-        # Considero solo le trap che provengono dall'agente che sto graficando
-        if trap["source_ip"] == agent_ip:
-            # Prendo il colore associato al tipo di trap
-            # Se il tipo non è nella mappa uso bianco come default
-            color = colors.get(trap["trap_type"], "#FFFFFF")
-            # datetime.fromisoformat() lo converte in oggetto datetime
-            # .timestamp() lo trasforma in Unix timestamp
-            ts = int(datetime.datetime.fromisoformat(trap["timestamp"]).timestamp())
-            # Costruisco la stringa VRULE nel formato richiesto da rrdtool:
-            # VRULE:timestamp#colore:etichetta
-            vrules.append(f"VRULE:{ts}{color}:{trap['trap_type']}")
+        src = trap.get("source_ip", "")
+        if src == agent_ip or src == "unknown":
+            try:
+                ts = int(datetime.datetime.fromisoformat(trap["timestamp"]).timestamp())
+            except Exception:
+                continue
+            relevant.append((ts, trap.get("trap_type"), trap))
+
+    # Ordino per timestamp; etichetto solo la prima occorrenza di ogni tipo di trap.
+    relevant.sort(key=lambda x: x[0])
+    seen_types = set()
+    for ts, ttype, trap in relevant:
+        color = colors.get(ttype, "#FFFFFF")
+        if ttype in seen_types:
+            vrules.append(f"VRULE:{ts}{color}")
+        else:
+            seen_types.add(ttype)
+            vrules.append(f"VRULE:{ts}{color}:{ttype}")
+
     return vrules
