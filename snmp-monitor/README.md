@@ -170,7 +170,7 @@ pip install --upgrade pip
 
   
 
-pip install rrdtool pysnmp pyyaml
+pip install -r requirements.txt
 
   
 
