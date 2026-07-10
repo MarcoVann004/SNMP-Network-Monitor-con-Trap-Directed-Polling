@@ -59,7 +59,6 @@ async def exec_polling(config_path: str, output_path: str, interval: int, stop_e
  
     logger.info("Loop di polling terminato")
 
-# Funzione generata da Claude
 async def sleep_until_next_cycle(interval: int, ciclo_iniziato: float, stop_event: asyncio.Event,) -> None:
     """
     Calcola quanto tempo resta prima del prossimo ciclo, sottraendo il tempo
@@ -84,7 +83,6 @@ async def sleep_until_next_cycle(interval: int, ciclo_iniziato: float, stop_even
     except asyncio.TimeoutError:
         pass  # timeout raggiunto normalmente: si procede al ciclo successivo
 
-# Funzione generata da Cluade
 def signal_handlers(stop_event: asyncio.Event) -> None:
     """
     Intercetta SIGINT/SIGTERM per uno shutdown pulito invece di un
