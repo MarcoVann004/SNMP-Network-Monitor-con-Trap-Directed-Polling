@@ -356,8 +356,6 @@ snmptrap -v 2c -c public localhost:9162 "" 1.3.6.1.6.3.1.1.5.3
 
   
 
-2026-07-06 18:33:20,110 INFO snmp_monitor.rrd_manager: Generazione grafici PNG completata nella directory rrd_graphs/
-
   
 
 2026-07-06 18:33:20,112 INFO \__main_\_: Loop di polling terminato
